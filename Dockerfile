@@ -2,9 +2,10 @@ FROM rust:alpine3.17 AS builder
 
 
 # Set the environment variables for pkg-config
-ENV export PKG_CONFIG_SYSROOT_DIR=/usr/lib
-ENV export PKG_CONFIG_LIBDIR=/usr/lib/pkgconfig
-
+ENV PKG_CONFIG_SYSROOT_DIR=/usr/lib
+ENV PKG_CONFIG_LIBDIR=/usr/lib/pkgconfig
+ENV OPENSSL_LIB_DIR=/usr/lib
+ENV OPENSSL_INCLUDE_DIR=/usr/include
 # Instale as dependências necessárias, incluindo o pacote libstdc++.
 RUN apk add --no-cache g++ libstdc++ musl-dev zeromq-dev pkgconfig openssl-dev
 
