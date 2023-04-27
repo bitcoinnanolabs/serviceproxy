@@ -6,7 +6,7 @@ ENV export PKG_CONFIG_SYSROOT_DIR=/usr/lib
 ENV export PKG_CONFIG_LIBDIR=/usr/lib/pkgconfig
 
 # Instale as dependências necessárias, incluindo o pacote libstdc++.
-RUN apk add --no-cache g++ libstdc++ musl-dev zeromq-dev pkgconfig
+RUN apk add --no-cache g++ libstdc++ musl-dev zeromq-dev pkgconfig openssl-dev
 
 WORKDIR /app
 
