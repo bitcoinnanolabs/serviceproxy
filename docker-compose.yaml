@@ -1,0 +1,20 @@
+version: "3"
+services:
+  serviceproxy:
+    image: bitcoinnanolabs/serviceproxy
+    container_name: serviceproxy
+    network_mode: "host"  
+    ports:
+      - ${FRONTEND_PORT}:${FRONTEND_PORT}
+      - ${BACKEND_PORT}:${BACKEND_PORT}
+    environment:
+      FRONTEND_PORT: ${FRONTEND_PORT} 
+      BACKEND_PORT: ${BACKEND_PORT} 
+      SECRET_KEY: ${SECRET_KEY}
+      PUBLIC_KEY: ${PUBLIC_KEY}
+      DATABASE_URL: ${DATABASE_URL}
+    volumes:
+      - serviceproxy:/code
+
+volumes:
+  serviceproxy: {}
