@@ -12,9 +12,5 @@ services:
       BACKEND_PORT: ${BACKEND_PORT} 
       SECRET_KEY: ${SECRET_KEY}
       PUBLIC_KEY: ${PUBLIC_KEY}
-      DATABASE_URL: ${DATABASE_URL}
-    volumes:
-      - serviceproxy:/code
-
-volumes:
-  serviceproxy: {}
+      SERVICE_URL: ${SERVICE_URL}
+   
