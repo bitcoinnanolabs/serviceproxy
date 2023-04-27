@@ -8,6 +8,7 @@ ENV OPENSSL_LIB_DIR=/usr/lib
 ENV OPENSSL_INCLUDE_DIR=/usr/include
 # Instale as dependências necessárias, incluindo o pacote libstdc++.
 RUN apk add --no-cache g++ libstdc++ musl-dev zeromq-dev pkgconfig openssl-dev
+RUN ln -s /usr/bin/gcc /usr/bin/musl-gcc
 
 WORKDIR /app
 
