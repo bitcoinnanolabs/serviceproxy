@@ -222,7 +222,7 @@ async fn is_public_key_allowed(client: &reqwest::Client, public_key: &str) -> Re
     let data = serde_json::json!({
         "zmq_key": public_key
     });
-    let service_url = format!("https://{}", env::var("SERVICE_URL").unwrap());
+    let service_url = format!("https://{}", env::var("SERVICE_URL").unwrap_or("https://payment.bitcoinnano.org/api/service-payment/is-active/".to_string()));
     let request = client
         .post(&service_url)
         .headers(headers)
