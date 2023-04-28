@@ -231,8 +231,10 @@ async fn is_public_key_allowed(client: &reqwest::Client, public_key: &str) -> Re
     let response = request.send().await?;
     let body: Value = response.json().await?;
 
-    match body.get("active") {
-        Some(active) => Ok(active.as_bool().unwrap_or(false)),
-        None => Ok(false),
-    }
+    let required_service_name = env::var("REQUIRED_SERVICE_NAME").unwrap_or("DataFeed".to_string());
+
+    let is_active = body.get("active").map_or(false, |active| active.as_bool().unwrap_or(false));
+    let service_name = body.get("service_name").map_or("".to_string(), |name| name.as_str().unwrap_or("").to_string());
+
+    Ok(is_active && service_name == required_service_name)
 }
