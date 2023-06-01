@@ -279,8 +279,8 @@ async fn is_public_key_allowed(client: &reqwest::Client, public_key: &str, domai
 
     Ok(is_active && service_name == required_service_name)
 } else {
-    static BACKEND_ALLOWED_KEYS: &'static [&'static str] = &["publickey1", "publickey2", "publickey3"];
-    return Ok(BACKEND_ALLOWED_KEYS.contains(&public_key));
+    let backend_key = env::var("BACKEND_PUBLIC_KEY").unwrap_or("false".to_string());
+    return Ok(backend_key.contains(&public_key));
 
 }
 }
