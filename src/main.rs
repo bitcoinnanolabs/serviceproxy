@@ -14,13 +14,17 @@ const ZAP_DOMAIN: &str = "inproc://zeromq.zap.01";
 fn main() {
     env_logger::from_env(Env::default().default_filter_or("info")).init();
 
-    let frontend_address = format!("tcp://*:{}", env::var("FRONTEND_PORT").unwrap());
-    let backend_address = format!("tcp://*:{}", env::var("BACKEND_PORT").unwrap());
+    let frontend_address_pubsub = format!("tcp://*:{}", env::var("PUBSUB_FRONTEND_PORT").unwrap_or("5555".to_string()));
+    let backend_address_pubsub = format!("tcp://*:{}", env::var("PUBSUB_BACKEND_PORT").unwrap_or("5554".to_string()));
+    let frontend_address_reqrep = format!("tcp://*:{}", env::var("REQREP_FRONTEND_PORT").unwrap_or("5556".to_string()));
+    let backend_address_reqrep = format!("tcp://*:{}", env::var("REQREP_BACKEND_PORT").unwrap_or("5557".to_string()));
 
-    let secret_key = env::var("SECRET_KEY").unwrap();
-    let public_key = env::var("PUBLIC_KEY").unwrap();
 
-    let backend_authentication = env::var("BACKEND_AUTHENTICATION").unwrap_or("false".to_string());
+
+    let secret_key = env::var("SECRET_KEY").unwrap_or("false".to_string());
+    let public_key = env::var("PUBLIC_KEY").unwrap_or("false".to_string());
+
+    let authentication = env::var("AUTHENTICATION").unwrap_or("false".to_string());
 
 
     let mut reqwest_client = reqwest::Client::builder().build().unwrap();
@@ -32,35 +36,70 @@ fn main() {
     zap_handler.set_linger(0).unwrap();
     zap_handler.bind(ZAP_DOMAIN).unwrap();
     thread::spawn(move || authenticator(zap_handler, &mut reqwest_client));
-    
-    let frontend = ctx.socket(SocketType::XPUB).unwrap();
-    frontend.set_affinity(0).unwrap();
-    frontend.set_rcvhwm(2).unwrap();
-    frontend.set_sndhwm(2).unwrap();
-    frontend.set_zap_domain("example").unwrap();
-    frontend.set_curve_publickey(public_key.as_bytes()).unwrap();
-    frontend.set_curve_secretkey(secret_key.as_bytes()).unwrap();
-    frontend.set_curve_server(true).unwrap();
-    frontend.bind(&frontend_address).unwrap();
 
+    let frontend_reqrep = ctx.socket(SocketType::ROUTER).unwrap();
+    let backend_reqrep = ctx.socket(SocketType::DEALER).unwrap();
+    let frontend_pubsub = ctx.socket(SocketType::XPUB).unwrap();
+    let backend_pubsub = ctx.socket(SocketType::XSUB).unwrap();
+
+
+
+    frontend_pubsub.set_affinity(0).unwrap();
+    backend_pubsub.set_affinity(1).unwrap();
+    frontend_pubsub.set_rcvhwm(2).unwrap();
+    frontend_pubsub.set_sndhwm(2).unwrap();
     
-    let backend = ctx.socket(SocketType::XSUB).unwrap();
-    backend.set_affinity(1).unwrap();
-    if backend_authentication.to_lowercase() == "true" {
-        backend.set_curve_publickey(public_key.as_bytes()).unwrap();
-        backend.set_curve_secretkey(secret_key.as_bytes()).unwrap();
-        backend.set_curve_server(true).unwrap();
+
+    if authentication.to_lowercase() == "true" {
+        frontend_reqrep.set_zap_domain("frontend").unwrap();
+        frontend_reqrep.set_curve_publickey(public_key.as_bytes()).unwrap();
+        frontend_reqrep.set_curve_secretkey(secret_key.as_bytes()).unwrap();
+        frontend_reqrep.set_curve_server(true).unwrap();
+
+        backend_reqrep.set_zap_domain("backend").unwrap();
+        backend_reqrep.set_curve_publickey(public_key.as_bytes()).unwrap();
+        backend_reqrep.set_curve_secretkey(secret_key.as_bytes()).unwrap();
+        backend_reqrep.set_curve_server(true).unwrap();
+
+
+        frontend_pubsub.set_zap_domain("frontend").unwrap();
+        frontend_pubsub.set_curve_publickey(public_key.as_bytes()).unwrap();
+        frontend_pubsub.set_curve_secretkey(secret_key.as_bytes()).unwrap();
+        frontend_pubsub.set_curve_server(true).unwrap();
+
+
+        backend_pubsub.set_zap_domain("backend").unwrap();
+        backend_pubsub.set_curve_publickey(public_key.as_bytes()).unwrap();
+        backend_pubsub.set_curve_secretkey(secret_key.as_bytes()).unwrap();
+        backend_pubsub.set_curve_server(true).unwrap();
     }
     
-    backend.bind(&backend_address).unwrap();
+    
+    
+    frontend_reqrep.bind(&frontend_address_reqrep).unwrap();  
+    backend_reqrep.bind(&backend_address_reqrep).unwrap();
+    frontend_pubsub.bind(&frontend_address_pubsub).unwrap();
+    backend_pubsub.bind(&backend_address_pubsub).unwrap();
 
+    thread::spawn(move || {
+        zmq::proxy(&frontend_reqrep, &backend_reqrep).expect("failed proxying req/rep");
+    });
+
+
+ 
+        
+
+
+
+    
+    
     //Inicie uma thread separada para enviar mensagens de heartbeat como um cliente
     thread::spawn(move || {
-        let backend_heartbeat = format!("tcp://127.0.0.1:{}", env::var("BACKEND_PORT").unwrap());
+        let backend_heartbeat = format!("tcp://127.0.0.1:{}", env::var("PUBSUB_BACKEND_PORT").unwrap_or("5554".to_string()));
 
         let ctx = Context::new();
         let heartbeat_socket = ctx.socket(SocketType::PUB).unwrap();
-        if backend_authentication.to_lowercase() == "true" {
+        if authentication.to_lowercase() == "true" {
         heartbeat_socket
             .set_curve_publickey(public_key.as_bytes())
             .expect("Failed to set public key");
@@ -85,12 +124,11 @@ fn main() {
         }
     });
 
-    // normal proxy
-
-    zmq::proxy(&frontend, &backend).expect("failed proxying");
-
     
 
+    
+   
+    zmq::proxy(&frontend_pubsub, &backend_pubsub).expect("failed proxying");
 }
 
 
@@ -137,6 +175,7 @@ fn handle_zap_auth(
     let request_id = zap_part!(s);
     let _domain = zap_part!(s);
     let _address = zap_part!(s);
+    let domain_str = std::str::from_utf8(&_domain).unwrap_or("");
     // info!("Client address: {:?}", _address.as_str().unwrap());
     // info!("Client Domain: {:?}", _domain.as_str().unwrap());
     // info!("Client request id: {:?}", request_id.as_str().unwrap());
@@ -183,7 +222,7 @@ fn handle_zap_auth(
         return zap_response(s, envelope, request_id, 500, "wrong key length", "");
     }
 
-    if rt.block_on(is_public_key_allowed(client, &zmq::z85_encode(peer_key).unwrap())).unwrap() {
+    if rt.block_on(is_public_key_allowed(client, &zmq::z85_encode(peer_key).unwrap(), domain_str)).unwrap() {
         info!("Authenticated user {:?}", &zmq::z85_encode(peer_key).unwrap());
         return zap_response(s, envelope, request_id, 200, "OK", &zmq::z85_encode(peer_key).unwrap());
     } else {
@@ -214,8 +253,10 @@ fn zap_response(
     Ok(())
 }
 
+
     
-async fn is_public_key_allowed(client: &reqwest::Client, public_key: &str) -> Result<bool, Error> {
+async fn is_public_key_allowed(client: &reqwest::Client, public_key: &str, domain: &str) -> Result<bool, Error> {
+    if domain == "frontend" {
     let mut headers = reqwest::header::HeaderMap::new();
     headers.insert("Content-Type", "application/json".parse().unwrap());
 
@@ -237,4 +278,9 @@ async fn is_public_key_allowed(client: &reqwest::Client, public_key: &str) -> Re
     let service_name = body.get("service_name").map_or("".to_string(), |name| name.as_str().unwrap_or("").to_string().to_lowercase());
 
     Ok(is_active && service_name == required_service_name)
+} else {
+    static BACKEND_ALLOWED_KEYS: &'static [&'static str] = &["publickey1", "publickey2", "publickey3"];
+    return Ok(BACKEND_ALLOWED_KEYS.contains(&public_key));
+
+}
 }
