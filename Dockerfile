@@ -1,4 +1,4 @@
-FROM rust:alpine3.17 AS builder
+FROM rust:alpine3.19 AS builder
 
 
 # Set the environment variables for pkg-config
@@ -7,7 +7,17 @@ ENV PKG_CONFIG_LIBDIR=/usr/lib/pkgconfig
 ENV OPENSSL_LIB_DIR=/usr/lib
 ENV OPENSSL_INCLUDE_DIR=/usr/include
 # Instale as dependências necessárias, incluindo o pacote libstdc++.
-RUN apk add --no-cache g++ libstdc++ musl-dev zeromq-dev pkgconfig openssl-dev
+
+RUN apk add --no-cache \
+    g++ \
+    zeromq-dev \
+    gcompat \
+    musl-dev \
+    gcc \
+    alpine-sdk \
+    libstdc++ \
+    openssl-dev \
+    pkgconfig 
 
 
 WORKDIR /app
@@ -27,7 +37,7 @@ RUN cargo build --release --target x86_64-unknown-linux-musl
 ####################################################################################################
 ## Final image
 ####################################################################################################
-FROM alpine:3.17
+FROM alpine:3.19
 
 
 WORKDIR /code
