@@ -14,10 +14,11 @@ WORKDIR /app
 
 COPY ./ .
 
-# Adicione a configuração ao arquivo cargo/config.toml
+# Configure cargo for musl target and use rust-lld linker
 RUN mkdir -p .cargo && \
     echo '[target.x86_64-unknown-linux-musl]' >> .cargo/config.toml && \
-    echo 'rustflags = ["-C", "target-feature=-crt-static"]' >> .cargo/config.toml
+    echo 'rustflags = ["-C", "target-feature=-crt-static", "-C", "linker=rust-lld"]' >> .cargo/config.toml
+
 
 RUN rustup target add x86_64-unknown-linux-musl
 RUN cargo build --release --target x86_64-unknown-linux-musl
